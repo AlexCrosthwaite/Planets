@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+
+<script id="vertex-shader" type="x-shader/x-vertex">
+attribute vec4 vPosition;
+attribute vec4 vNormal;
+
+uniform mat4 projection;
+uniform mat4 modelView;
+uniform mat4 sunMatrix;
+uniform vec4 ambientProduct;
+uniform vec4 diffuseProduct;
+uniform vec4 specularProduct;
+uniform float shininess;
+
+uniform int isSun;
+uniform int shading;
+
+vec4 ambient, diffuse, specular;
+varying vec4 fColor;
+varying vec3 N, L, E;
+
+void
+main()
+{   
+    if (isSun == 1) {
+        fColor = ambientProduct;
+    }
+    else {
+        vec3 pos = (modelView * vPosition).xyz;
+
+        vec3 lightPos = (sunMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+        N = normalize((modelView * vNormal).xyz);
+        L = normalize(lightPos - pos);
+        E = -pos;
+        if (shading < 2)
+        {   
+            E = normalize(-pos);
+            vec3 H = normalize(L + E);
+
+            float Kd = max(dot(L,N), 0.0);
+            diffuse = Kd * diffuseProduct;
+
+          	ambient = ambientProduct;
+
+          	float Ks = pow(max(dot(N, H), 0.0), shininess);
+        	vec4 specular = Ks * specularProduct;
+
+        	if (dot(L, N) < 0.0) {
+        		specular = vec4(0.0, 0.0, 0.0, 1.0);
+        	}
+            fColor = ambient + diffuse + specular;
+            fColor.a = 1.0;
+        }
+    }
+
+    gl_Position = projection * modelView * vPosition;
+}
+
+</script>
+
+<script id="fragment-shader" type="x-shader/x-fragment">
+precision mediump float;
+varying vec4 fColor;
+varying highp vec3 N, L, E;
+uniform highp vec4 ambientProduct;
+uniform highp vec4 diffuseProduct;
+uniform highp vec4 specularProduct;
+uniform highp float shininess;
+uniform highp int shading;
+
+void
+main()
+{
+    if(shading == 2){
+        vec4 color;
+        vec3 H = normalize(normalize(L) + normalize(E));
+        vec4 ambient = ambientProduct;
+
+        float kd = max(dot(normalize(L), normalize(N)), 0.0);
+        vec4 diffuse = kd * diffuseProduct;
+
+        float ks = pow(max(dot(normalize(N), normalize(H)), 0.0), shininess);
+        vec4 specular = ks * specularProduct;
+
+        if (dot(normalize(L), normalize(N)) < 0.0) {
+            specular = vec4(0.0, 0.0, 0.0, 1.0);
+        }
+        color = ambient + diffuse + specular;
+        color.a = 1.0;
+        gl_FragColor = color;
+    }
+    else
+        gl_FragColor = fColor;
+}   
+
+</script>
+
+<script type="text/javascript" src="webgl-utils.js"></script>
+<script type="text/javascript" src="initShaders.js"></script>
+<script type="text/javascript" src="MV.js"></script>
+<script type="text/javascript" src="planets.js"></script>
+
+
+<body>
+<canvas id="gl-canvas" width="960" height="540">
+Oops ... your browser doesn't support the HTML5 canvas element
+</canvas>
+
+</body>
+</html>
