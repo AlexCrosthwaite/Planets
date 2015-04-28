@@ -1,44 +1,6 @@
 var canvas;
 var gl;
 
-var planetAmbients = [
-        [ 1.0, 0.8, 0.0, 1.0 ],
-        [ 0.9, 0.9, 0.9, 1.0 ],  // black
-        [ 1.0, 0.0, 0.0, 1.0 ],  // red
-        [ 0.0, 1.0, 0.0, 1.0 ],  // green
-        [ 0.3, 0.3, 0.8, 1.0 ]
-];
-var planetDiffuses = [
-    vec4( 1.0, 0.8, 0.0, 1.0 ),
-    vec4( 0.9, 0.9, 0.9, 1.0 ),
-    vec4( 1.0, 0.0, 0.0, 1.0 ),
-    vec4( 0.0, 1.0, 0.0, 1.0 ),
-    vec4( 0.3, 0.3, 0.8, 1.0 )
-];
-planetSpecular = vec4(1.0, 1.0, 1.0, 1.0);
-
-var planetRotations = [0.0, 0.5, 0.6, 0.2, 0.4];
-var planetAngles = [0.0, 0.0, 0.0, 0.0, 0.0];
-var modelTransforms = [
-    translate(0, 0, 0),
-    translate(-14, 0, 0),
-    translate(-8, 0, 0),
-    translate(12, 0, 0),
-    translate(5, 0, 0)
-	];
-var planetScales = [
-    [2.0, 2.0, 2.0],
-    [0.5, 0.5, 0.5],
-    [0.7, 0.7, 0.7],
-    [0.3, 0.3, 0.3],
-    [1.0, 1.0, 1.0]
-    ];
-var moon = {
-    angle : 0.0,
-    rotation : 0.2,
-    translate : translate(1.8, 0, 0),
-}
-
 var lightAmbient = vec4(0.3, 0.3, 0.3, 1.0);
 var lightDiffuse = vec4(0.1, 0.1, 0.0, 1.0);
 var lightSpecular = vec4(0.5, 0.5, 0.5, 1.0);
@@ -59,6 +21,7 @@ var attach = false;
 
 var viewMatrix, modelMatrix;
 
+//variables for camera
 var camera = {
     x : 0,
     y : 0,
@@ -70,6 +33,7 @@ var camera = {
     heading : 0
 }
 
+//Needed for matrix times vector
 function matTimesVec(mat, vec)
 {   
     var result = [];
@@ -85,6 +49,7 @@ function matTimesVec(mat, vec)
     return result;
 }
 
+//function for generating sphere geometry with different complexities and normals for different shadings
 function sphere(nDiv, shading){
     function tetrahedron(a, b, c, d, nDiv, shading){
         divideTriangle(a, b, c, nDiv, shading);
@@ -140,6 +105,7 @@ function sphere(nDiv, shading){
         }
     }
 
+    //initial tetrahedron points
     var va = vec4(0.0, 0.0, -1.0,1);
     var vb = vec4(0.0, 0.942809, 0.333333, 1);
     var vc = vec4(-0.816497, -0.471405, 0.333333, 1);
@@ -250,10 +216,7 @@ window.onload = function init()
     window.onkeypress = function(event) {
     	var key = String.fromCharCode(event.keyCode).toLowerCase();
     	switch(key){
-    		case 'c': //Cycle through the colors of the cubes
-    		colorIndex++;
-            break;
-            case 'a':
+            case 'a': //Attach/detach from a planet
             attach = !attach;
             camera.x = 0;
             camera.y = 0;
@@ -323,6 +286,8 @@ function render() {
     gl.uniformMatrix4fv(projectionLoc, false, flatten(projection));
 
     if(attach == true){
+        //If we are attached to a planet, generate the view matrix using lookAt with the eye located at the
+        //planet in question
         var planet = planets[1];
         var rot = rotate(planet.theta, [0, 1, 0]);
         var pos = vec4(planet.radius - 2, 0, 0, 1);
@@ -338,6 +303,7 @@ function render() {
         viewMatrix = lookAt(eye, at, [0, 1, 0]);
     }
     else{
+        //If not attached, generate the view matrix using he camera coordinates
         viewMatrix = mult(rotate(camera.heading, [0, 1, 0]), translate(camera.x, camera.y, camera.z));
         viewMatrix = mult(rotate(30, [1, 0, 0]), viewMatrix);
         viewMatrix = mult(translate(0, Math.sin(Math.PI/6) * camera.z, 0), viewMatrix);
@@ -345,17 +311,17 @@ function render() {
 
     for(var i = 0; i < planets.length; i++)
     {   
-        //var modelMatrix;
-
         if (planets[i].isMoon == true)
-        {
+        {   
+            //If we are drawing the moon, account for the translation and rotation around the planet it is orbiting.
             modelMatrix = mult(rotate(planets[i].theta, [0, 1, 0]), translate(planets[i].radius, 0, 0));
             modelMatrix = mult(modelMatrix, scale(planets[i].size, planets[i].size, planets[i].size));
             modelMatrix = mult(translate(planets[planets.length-2].radius, 0, 0), modelMatrix);
             modelMatrix = mult(rotate(planets[planets.length-2].theta, [0, 1, 0]), modelMatrix);
         }
         else
-        {
+        {   
+            //Otherwise, just account for the translation and rotation around the sun
             modelMatrix = mult(rotate(planets[i].theta, [0, 1, 0]), translate(planets[i].radius, 0, 0));
             modelMatrix = mult(modelMatrix, scale(planets[i].size, planets[i].size, planets[i].size));
         }
@@ -364,11 +330,13 @@ function render() {
         gl.uniformMatrix4fv(modelViewLoc, false, flatten(modelView));
     
         if (i == 0) {
+            //Send in color data for the sun
             gl.uniformMatrix4fv(sunMatrixLoc, false, flatten(modelView));
             gl.uniform1i(isSunLoc, false, 1);
             gl.uniform4fv(ambientProductLoc, planets[i].material.ambient);
         }
         else{
+            //send in color data for each planet
             gl.uniform1i(isSunLoc, false, 0);
             gl.uniform1i(shadingLoc, planets[i].shading);
             ambientProduct = mult(lightAmbient, planets[i].material.ambient);
@@ -384,6 +352,7 @@ function render() {
 
         if (i > 0)
         {   
+            //rotate all the planets
             if(planets[i].isMoon == true)
                 planets[i].theta -= 3/planets[i].radius;
             planets[i].theta += 5/planets[i].radius;
